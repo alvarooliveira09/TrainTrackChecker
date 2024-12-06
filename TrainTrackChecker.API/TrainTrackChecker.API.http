@@ -1,0 +1,6 @@
+@TrainTrackChecker.API_HostAddress = http://localhost:5285
+
+GET {{TrainTrackChecker.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
