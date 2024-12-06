@@ -1,0 +1,202 @@
+﻿@page "/ordensmanutencaolocais"
+@using TrainTrackChecker.Components.Pages.OrdensManutencao
+@inject IDialogService dialogService
+@inject IApiService<OrdemManutencao_Local> itemService
+@inject IApiService<OrdemManutencao> itemServiceOrdemManutencao
+@inject NavigationManager navigationManager
+@inject IJSRuntime JS
+
+@if (items != default!) {
+    <FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Horizontal"
+                 HorizontalAlignment="HorizontalAlignment.Stretch"
+                 VerticalAlignment="VerticalAlignment.Top">
+        <FluentIcon Style="margin-bottom:2px" Value="@(new Icons.Regular.Size32.ArrowCircleLeft())" OnClick="@(() => JS.InvokeVoidAsync("history.back"))" />
+        <FluentSpacer />
+        <FluentButton Appearance="Appearance.Accent" style="margin-bottom:10px"
+                      IconStart="@(new Icons.Regular.Size16.Add())"
+                      OnClick="@(() => AddDialog())">@AddNewButtonText &nbsp;&nbsp;</FluentButton>
+    </FluentStack>
+    <div style="display: table; table-layout: fixed; width: 100%;">
+        <div style="overflow-x: auto;">
+
+            <Grid TItem="OrdemManutencao_Local"
+                  Class="table table-hover table-bordered table-striped"
+                  Data="items"
+                  Style="font-size: 12px;"
+                  AllowSorting="true"
+                  AllowRowClick="true"
+                  OnRowClick="OnRowClick"
+                  AllowPaging="true"
+                  PageSize="15"
+                  AutoHidePaging="true"
+                  PageSizeSelectorVisible="true"
+                  PageSizeSelectorItems="@(new int[] { 15, 50, 100 })"
+                  PaginationItemsTextFormat=""
+                  ItemsPerPageText=""
+                  AllowSelection="false"
+                  EmptyText="Nenhum registro para exibir."
+                  Responsive="true">
+
+                <GridColumns>
+                    <GridColumn TItem="OrdemManutencao_Local" HeaderText="Código da O.M." PropertyName="Código da O.M." TextNoWrap="true"
+                                TextAlignment="Alignment.Center" SortKeySelector="c => ((c.OrdemManutencao == null) ? null : c.OrdemManutencao.Codigo)">
+                        @context.OrdemManutencao?.Codigo
+                    </GridColumn>
+                    <GridColumn TItem="OrdemManutencao_Local" HeaderText="Status" PropertyName="Status" TextNoWrap="true"
+                                SortKeySelector="c => c.Status">
+                        @Helpers.EnumToFormattedText(context.Status.ToString())
+                    </GridColumn>
+                    <GridColumn TItem="OrdemManutencao_Local" HeaderText="Coordenada Geográfica" PropertyName="Coordenada Geográfica" TextNoWrap="true"
+                                SortKeySelector="c => c.Coordenada">
+                        @context.Coordenada
+                    </GridColumn>
+                    <GridColumn TItem="OrdemManutencao_Local" HeaderText="Dt/Hs da Manutenção" PropertyName="Dt/Hs da Manutenção" TextNoWrap="true"
+                                SortKeySelector="c => c.DataHora">
+                        @Helpers.DateTimeToLongString(context.DataHora)
+                    </GridColumn>
+                </GridColumns>
+            </Grid>
+
+        </div>
+    </div>
+    <FluentPaginator State="@pagination" />
+} else {
+    <div style="padding:10px">
+        <p><em>Buscando dados...</em></p>
+        <FluentProgress Width="250px"
+                        Stroke="@Microsoft.FluentUI.AspNetCore.Components.ProgressStroke.Small" />
+    </div>
+}
+
+
+@code {
+
+    string EntityNameSingular = "Local de Ord. Manut.";
+    string EntityNamePlural = "Locais de Ord. Manut.";
+    string EntityPronoumSingular = "o";
+    string EntityPronoumPlural = "os";
+
+    string AddNewButtonText { get { return $"Adicionar nov{EntityPronoumSingular} {EntityNameSingular}"; } }
+
+    private IQueryable<OrdemManutencao_Local>? items = default!;
+    private IQueryable<OrdemManutencao>? itemsOrdemManutencao = default!;
+
+    PaginationState pagination = new PaginationState { ItemsPerPage = 15 };
+
+    protected override async Task OnInitializedAsync() {
+        await LoadDataAsync(false);
+    }
+
+    async Task LoadDataAsync(bool stateHasChanged = true) {
+        var result = await itemService.GetAllAsync();
+        items = result?.OrderByDescending(x => x.DataHora);
+
+        var resultOrdemManutencao = await itemServiceOrdemManutencao.GetAllAsync();
+        itemsOrdemManutencao = resultOrdemManutencao?.OrderByDescending(x => x.DataHora);
+
+        if (stateHasChanged)
+            StateHasChanged();
+    }
+
+    private async Task OnRowClick(GridRowEventArgs<OrdemManutencao_Local> args) {
+        await EditDialog(args.Item);
+    }
+
+    private async Task<DialogResult?> showAddDialog(OrdemManutencao_Local item) {
+        return await showDialog("Cadastrar", item);
+    }
+
+    private async Task<DialogResult?> showEditDialog(OrdemManutencao_Local item) {
+        return await showDialog("Editar", item);
+    }
+
+    private async Task<DialogResult?> showDialog(string addOrEdit, OrdemManutencao_Local item) {
+        var parameters = new DialogParameters {
+                Title = $"{addOrEdit} {EntityNameSingular}",
+                PreventDismissOnOverlayClick = true,
+                PreventScroll = true
+            };
+
+        var dialog = await dialogService.ShowDialogAsync<OrdensManutencao_Locais.EditPanel>(item, parameters);
+
+        return await dialog.Result;
+
+    }
+    private async void showErrorMessageAsync(Exception ex) {
+        await dialogService.ShowErrorAsync("Error: ", ex.InnerException?.Message ?? ex.Message);
+    }
+
+    private async Task AddDialog() {
+
+        var dialogResult = await showAddDialog(new OrdemManutencao_Local());
+        if (dialogResult == null || dialogResult.Cancelled) { return; }
+
+        if (dialogResult.Data is not null) {
+            var newItem = dialogResult.Data as OrdemManutencao_Local;
+            if (newItem is null) { return; }
+
+            try {
+                await itemService.SaveAsync(newItem);
+                await LoadDataAsync();
+            } catch (Exception ex) {
+                showErrorMessageAsync(ex);
+            }
+        }
+    }
+
+
+    private async Task EditDialog(OrdemManutencao_Local originalItem) {
+
+        var dialogResult = await showEditDialog(originalItem.DeepCopy());
+        if (dialogResult == null || dialogResult.Cancelled || dialogResult.Data is null) {
+            return;
+        }
+
+        if (dialogResult.Data.GetType() == typeof(Guid)) {
+            await DeleteItem(originalItem);
+            return;
+        }
+
+        var updatedItem = dialogResult.Data as OrdemManutencao_Local;
+        if (updatedItem is null) {
+            return;
+        }
+
+        // Take the data from the "edited" item and put it into the original item
+        originalItem.OrdemManutencao = updatedItem.OrdemManutencao;
+        originalItem.OrdemManutencaoId = updatedItem.OrdemManutencaoId;
+        originalItem.Status = updatedItem.Status;
+        originalItem.Coordenada = updatedItem.Coordenada;
+        originalItem.DataHora = updatedItem.DataHora;
+        // originalItem.User = updatedItem.User;
+        // originalItem.UserId = updatedItem.UserId;
+        originalItem.StatusEnvioAPI = updatedItem.StatusEnvioAPI;
+
+        try {
+            await itemService.SaveAsync(originalItem, originalItem.Id);
+            await LoadDataAsync();
+        } catch (Exception ex) {
+            showErrorMessageAsync(ex);
+        }
+    }
+
+
+    private async Task DeleteItem(OrdemManutencao_Local item) {
+
+        IDialogReference dialog = await dialogService.ShowConfirmationAsync(
+                $"Tem certeza de que deseja deletar {EntityPronoumSingular} {EntityNameSingular.ToLower()} com a coordenada: '{item.Coordenada}'?",
+            "Sim", "Não", $"Deletar {EntityNameSingular}?"
+        );
+
+        DialogResult result = await dialog.Result;
+        if (result.Cancelled) { return; }
+
+        try {
+            await itemService.DeleteAsync(item.Id);
+            await LoadDataAsync();
+        } catch (Exception ex) {
+            showErrorMessageAsync(ex);
+        }
+    }
+
+}

@@ -1,0 +1,214 @@
+﻿@page "/hardwares"
+@using TrainTrackChecker.Components.Pages.Hardwares
+@inject IDialogService dialogService
+@inject IApiService<Hardware> itemService
+@inject NavigationManager navigationManager
+@inject IJSRuntime JS
+
+@if (items != default!) {
+    <FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Horizontal"
+             HorizontalAlignment="HorizontalAlignment.Stretch"
+             VerticalAlignment="VerticalAlignment.Top">
+        <FluentIcon Style="margin-bottom:2px" Value="@(new Icons.Regular.Size32.ArrowCircleLeft())" OnClick="@(() => JS.InvokeVoidAsync("history.back"))" />
+        <FluentSpacer/>
+        <FluentButton Appearance="Appearance.Accent" style="margin-bottom:10px"
+                      IconStart="@(new Icons.Regular.Size16.Add())"
+                      OnClick="@(() => AddDialog())">@AddNewButtonText &nbsp;&nbsp;</FluentButton>
+    </FluentStack>
+    <div style="display: table; table-layout: fixed; width: 100%;">
+        <div style="overflow-x: auto;">
+
+            <Grid TItem="Hardware"
+                  Class="table table-hover table-bordered table-striped"
+                  Data="items"
+                  Style="font-size: 12px;"
+                  AllowSorting="true"
+                  AllowRowClick="true"
+                  OnRowClick="OnRowClick"
+                  AllowPaging="true"
+                  PageSize="15"
+                  AutoHidePaging="true"
+                  PageSizeSelectorVisible="true"
+                  PageSizeSelectorItems="@(new int[] { 15, 50, 100 })"
+                  PaginationItemsTextFormat=""
+                  ItemsPerPageText=""
+                  AllowSelection="false"
+                  EmptyText="Nenhum registro para exibir."
+                  Responsive="true">
+
+                <GridColumns>
+                    <GridColumn TItem="Hardware" HeaderText="Codigo" PropertyName="Codigo" TextNoWrap="true"
+                                TextAlignment="Alignment.Center" SortKeySelector="c => c.Codigo">
+                        @context.Codigo
+                    </GridColumn>
+                    <GridColumn TItem="Hardware" HeaderText="Nome" PropertyName="Nome" TextNoWrap="true" 
+                        SortKeySelector="c => c.Nome">
+                        @context.Nome
+                    </GridColumn>
+                    <GridColumn TItem="Hardware" HeaderText="Descrição" PropertyName="Descricao" TextNoWrap="true" 
+                        SortKeySelector="c => c.Descricao">
+                        @context.Descricao
+                    </GridColumn>
+                    <GridColumn TItem="Hardware" HeaderText="Número Série" PropertyName="Número Série" TextNoWrap="true"
+                        SortKeySelector="c => c.Descricao">
+                        @context.NumeroSerie
+                    </GridColumn>
+                    <GridColumn TItem="Hardware" HeaderText="Instalação" PropertyName="Instalação" TextNoWrap="true"
+                                SortKeySelector="c => c.Descricao">
+                        @Helpers.DateTimeToLongString(context.DataHoraInstalacao)
+                    </GridColumn>
+                    <GridColumn TItem="Hardware" HeaderText="Em Operação" PropertyName="Em Operação" TextNoWrap="true"
+                        TextAlignment="Alignment.Center">
+                        @(context.EmOperacao ? "Sim" : "Não")
+                    </GridColumn>
+                    <GridColumn TItem="Hardware" HeaderText="Local" PropertyName="Local" TextNoWrap="true">
+                        @context.LocalInstalacao
+                    </GridColumn>
+                </GridColumns>
+
+            </Grid>
+
+        </div>
+    </div>
+    <FluentPaginator State="@pagination" />
+} else {
+    <div style="padding:10px">
+        <FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Horizontal"
+                     HorizontalAlignment="HorizontalAlignment.Stretch"
+                     VerticalAlignment="VerticalAlignment.Top">
+            <FluentIcon Style="margin-bottom:2px" Value="@(new Icons.Regular.Size32.ArrowCircleLeft())" OnClick="@(() => JS.InvokeVoidAsync("history.back"))" />
+            <h3>Hardwares</h3>
+        </FluentStack>
+        
+        <p><em>Buscando dados...</em></p>
+        <FluentProgress 
+            Width="250px" 
+            Stroke="@Microsoft.FluentUI.AspNetCore.Components.ProgressStroke.Small" />
+    </div>
+}
+
+
+@code {
+
+    string EntityNameSingular = "Hardware";
+    string EntityNamePlural = "Hardwares";
+    string EntityPronoumSingular = "o";
+    string EntityPronoumPlural = "os";
+
+    string AddNewButtonText { get { return $"Adicionar nov{EntityPronoumSingular} {EntityNameSingular}"; } }
+
+    private IQueryable<Hardware>? items = default!;
+
+    PaginationState pagination = new PaginationState { ItemsPerPage = 15 };
+
+    protected override async Task OnInitializedAsync() {
+        await LoadDataAsync(false);
+    }
+
+    async Task LoadDataAsync(bool stateHasChanged = true) {
+        var result = await itemService.GetAllAsync();
+        items = result?.OrderBy(x => x.Codigo);
+        if (stateHasChanged)
+            StateHasChanged();
+    }
+
+    private async Task OnRowClick(GridRowEventArgs<Hardware> args) {
+        await EditDialog(args.Item);
+    }
+
+    private async Task<DialogResult?> showAddDialog(Hardware item) {
+        return await showDialog("Cadastrar", item);
+    }
+
+    private async Task<DialogResult?> showEditDialog(Hardware item) {
+        return await showDialog("Editar", item);
+    }
+
+    private async Task<DialogResult?> showDialog(string addOrEdit, Hardware item) {
+        var parameters = new DialogParameters {
+                Title = $"{addOrEdit} {EntityNameSingular}",
+                PreventDismissOnOverlayClick = true,
+                PreventScroll = true
+            };
+
+        var dialog = await dialogService.ShowDialogAsync<Hardwares.EditPanel>(item, parameters);
+
+        return await dialog.Result;
+
+    }
+    private async void showErrorMessageAsync(Exception ex) {
+        await dialogService.ShowErrorAsync("Error: ", ex.InnerException?.Message ?? ex.Message);
+    }
+
+    private async Task AddDialog() {
+
+        var dialogResult = await showAddDialog(new Hardware());
+        if (dialogResult == null || dialogResult.Cancelled) { return; }
+
+        if (dialogResult.Data is not null) {
+            var newItem = dialogResult.Data as Hardware;
+            if (newItem is null) { return; }
+
+            try {
+                await itemService.SaveAsync(newItem);
+                await LoadDataAsync();
+            } catch (Exception ex) {
+                showErrorMessageAsync(ex);
+            }
+        }
+    }
+
+
+    private async Task EditDialog(Hardware originalItem) {
+
+        var dialogResult = await showEditDialog(originalItem.DeepCopy());
+        if (dialogResult == null || dialogResult.Cancelled || dialogResult.Data is null) {
+            return; 
+        }
+
+        if (dialogResult.Data.GetType() == typeof(Guid)) {
+            await DeleteItem(originalItem);
+            return;
+        }
+
+        var updatedItem = dialogResult.Data as Hardware;
+        if (updatedItem is null) {
+            return;
+        }
+
+        // Take the data from the "edited" item and put it into the original item
+        originalItem.Nome = updatedItem.Nome;
+        originalItem.Descricao = updatedItem.Descricao;
+        originalItem.EmOperacao = updatedItem.EmOperacao;
+        originalItem.NumeroSerie = updatedItem.NumeroSerie;
+        originalItem.LocalInstalacao = updatedItem.LocalInstalacao;
+        originalItem.DataHoraInstalacao = updatedItem.DataHoraInstalacao;
+
+        try {
+            await itemService.SaveAsync(originalItem, originalItem.Id);
+            await LoadDataAsync();
+        } catch (Exception ex) {
+            showErrorMessageAsync(ex);
+        }
+    }
+
+
+    private async Task DeleteItem(Hardware item) {
+
+        IDialogReference dialog = await dialogService.ShowConfirmationAsync(
+            $"Tem certeza de que deseja deletar {EntityPronoumSingular} {EntityNameSingular.ToLower()} '{item.Nome}'?",
+            "Sim", "Não", $"Deletar {EntityNameSingular}?"
+        );
+
+        DialogResult result = await dialog.Result;
+        if (result.Cancelled) { return; }
+
+        try {
+            await itemService.DeleteAsync(item.Id);
+            await LoadDataAsync();
+        } catch (Exception ex) {
+            showErrorMessageAsync(ex);
+        }
+    }
+
+}

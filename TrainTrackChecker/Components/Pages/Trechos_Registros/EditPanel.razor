@@ -1,0 +1,185 @@
+﻿@implements IDialogContentComponent<Trecho_Registro>
+@using System.ComponentModel.DataAnnotations
+@inject IToastService ToastService
+@inject IApiService<Trecho_Registro> itemService
+@inject IApiService<Trecho> itemServiceTrecho
+
+<FluentDialogHeader ShowDismiss="false">
+    <FluentStack VerticalAlignment="VerticalAlignment.Center">
+        @if (Content.Id == default) {
+            <FluentIcon Value="@(new Icons.Regular.Size24.Add())" />
+        } else {
+            <FluentIcon Value="@(new Icons.Regular.Size24.Edit())" />
+        }
+        <FluentLabel Typo="Typography.PaneHeader">
+            @Dialog.Instance.Parameters.Title
+        </FluentLabel>
+    </FluentStack>
+</FluentDialogHeader>
+
+<FluentDialogBody>
+
+    <EditForm EditContext="@_editContext" FormName="@typeof(Trecho_Registro).Name" >
+
+        <DataAnnotationsValidator />
+
+        <FluentStack
+            Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical" 
+            HorizontalAlignment="HorizontalAlignment.Stretch">
+            <FluentAutocomplete TOption="Trecho"
+                                Autofocus="true"
+                                Width="100%"
+                                Placeholder="Selecione um Trecho"
+                                OnOptionsSearch="@OnSearch"
+                                MaximumSelectedOptions="1"
+                                KeepOpen="true"
+                                @bind-SelectedOptions="@acTrecho_SelectedItems"
+                                OptionText="@(item => String.Format("{0} - {1:dd/MM/yyyy HH:mm:ss'h'}", item.Codigo.ToString(), item.DataHoraInicio))"
+                                OptionStyle="min-height: 40px;">
+                <FooterContent Context="acContext">
+                    @if (itemsTrecho.Any() == false) {
+                        <FluentLabel Style="font-size: 12px; text-align: center; width: 300px;">
+                            Nenhum hardware encontrado
+                        </FluentLabel>
+                    }
+                </FooterContent>
+            </FluentAutocomplete>
+
+
+            <FluentDatePicker Label="  Data da leitura" Style="@style"
+                              @bind-Value="@Content.DataHora" />
+
+            <FluentTimePicker Label="Hora da leitura" Required
+                              @bind-Value="@hora" />
+
+            <FluentNumberField Label="  DistanciaMM" @bind-Value="@Content.DistanciaMM" Required Style="@style" />
+
+            <FluentTextField Label="  Coordenada" Required Style="@style"
+                             @bind-Value="@Content.Coordenada" />
+
+            <FluentSwitch Label="  Verificado"
+                @bind-Value=@Content.Verificado />
+
+        </FluentStack>
+
+        <FluentValidationSummary Style="font-size: 14px; padding-top:20px; color: var(--error);" />
+
+    </EditForm>
+
+</FluentDialogBody>
+
+
+<hr />
+<FluentDialogFooter Visible="false"/>
+
+<FluentStack HorizontalAlignment="HorizontalAlignment.End">
+    @if (Content.Id != default) {
+        <FluentButton Appearance="Appearance.Neutral" OnClick="DeleteAsync">
+            <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" Color="Color.Error" Slot="start" />
+            Deletar
+        </FluentButton>
+    }
+    <FluentButton Appearance="Appearance.Neutral"
+                    IconStart="@(new Icons.Regular.Size20.ArrowCircleLeft())"
+                    OnClick="@CancelAsync" >Cancelar</FluentButton>
+
+    <FluentButton Appearance="Appearance.Accent"
+                    IconStart="@(new Icons.Regular.Size20.Save())"
+                    OnClick="@SaveAsync" >Salvar</FluentButton>
+</FluentStack>
+<FluentToastProvider MaxToastCount="10" Position="ToastPosition.TopCenter" />
+
+
+@* Keyboard space *@
+<div style="padding-bottom: 300px;"/>
+
+
+
+@code
+{
+
+    DateTime? hora { get; set; }
+
+    private DateTime? JoinDateTime(DateTime? date, DateTime? time) {
+        if (time == null) { return null; }
+        if (date == null) { date = DateTime.Now; }
+        return new DateTime(
+            year: date.Value.Year,
+            month: date.Value.Month,
+            day: date.Value.Day,
+            hour: time.Value.Hour,
+            minute: time.Value.Minute,
+            second: time.Value.Second
+        );
+    }
+
+    IEnumerable<Trecho> acTrecho_SelectedItems = Array.Empty<Trecho>();
+
+    private IQueryable<Trecho> itemsTrecho = default!;
+
+
+
+    private void OnSearch(OptionsSearchEventArgs<Trecho> e) {
+        e.Items = itemsTrecho.Where(i => Search(i.Codigo, i.DataHoraInicio, e.Text));
+    }
+
+    private bool Search(int codigo, DateTime? dateTime, string eText) {
+        if(eText.Contains(" -") || eText.Contains(" - ")) {
+            return codigo.ToString().Contains(eText.Replace(" -", "").Replace(" - ", ""));
+        } else if (codigo.ToString().Contains(eText)) {
+            return true;
+        }
+        string? dt = dateTime?.ToString("dd/MM/yyyy HH:mm:ss'h'");
+        if (dt == null)
+            return false;
+        return dt.Contains(eText, StringComparison.OrdinalIgnoreCase);
+    }
+
+
+
+    private EditContext _editContext = default!;
+
+    protected override async Task OnInitializedAsync() {
+        _editContext = new EditContext(Content);
+        var resultTrecho = await itemServiceTrecho.GetAllAsync();
+        itemsTrecho = resultTrecho?.OrderByDescending(x => x.DataHoraInicio) ?? default!;
+
+        hora = Content.DataHora;
+
+        if(Content.Trecho is not null)
+            acTrecho_SelectedItems = new List<Trecho>() {
+                Content.Trecho
+            };
+
+    }
+
+    [Parameter]
+    public Trecho_Registro Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog Dialog { get; set; } = default!;
+
+    private async Task SaveAsync() {
+
+        if (_editContext.Validate() && acTrecho_SelectedItems.Any()!) {
+            Content.DataHora = JoinDateTime(Content.DataHora, hora) ?? DateTime.Now;
+            var trecho = acTrecho_SelectedItems.First();
+            Content.Trecho = null;
+            Content.TrechoId = trecho.Id;
+            await Dialog.CloseAsync(Content);
+        } else {
+            ToastService.ShowWarning("Por favor verifique os campos assinalados em vermelho.");
+        }
+    }
+
+    private async Task DeleteAsync() {
+        await Dialog.CloseAsync(Content.Id);
+    }
+
+    private async Task CancelAsync() {
+        await Dialog.CancelAsync(); 
+    }
+
+    const string style = "margin-top: -10px; margin-bottom: 10px;";
+
+}

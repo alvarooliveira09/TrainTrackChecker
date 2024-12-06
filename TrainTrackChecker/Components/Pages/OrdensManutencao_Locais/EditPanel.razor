@@ -1,0 +1,180 @@
+﻿@implements IDialogContentComponent<OrdemManutencao_Local>
+@using System.ComponentModel.DataAnnotations
+@inject IToastService ToastService
+@inject IApiService<OrdemManutencao_Local> itemService
+@inject IApiService<OrdemManutencao> itemServiceOrdemManutencao
+
+@* https://www.fluentui-blazor.net/Dialog#editabledialog *@
+
+<FluentDialogHeader ShowDismiss="false">
+    <FluentStack VerticalAlignment="VerticalAlignment.Center">
+        @if (Content.Id == default) {
+            <FluentIcon Value="@(new Icons.Regular.Size24.Add())" />
+        } else {
+            <FluentIcon Value="@(new Icons.Regular.Size24.Edit())" />
+        }
+        <FluentLabel Typo="Typography.PaneHeader">
+            @Dialog.Instance.Parameters.Title
+        </FluentLabel>
+    </FluentStack>
+</FluentDialogHeader>
+
+<FluentDialogBody>
+
+    <EditForm EditContext="@_editContext" FormName="@typeof(OrdemManutencao_Local).Name">
+
+        <DataAnnotationsValidator />
+
+        <FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical"
+                     HorizontalAlignment="HorizontalAlignment.Stretch">
+            <FluentAutocomplete TOption="OrdemManutencao"
+                                Autofocus="true"
+                                Width="100%"
+                                Placeholder="Selecione uma Ordem de Manutencao"
+                                OnOptionsSearch="@OnSearch"
+                                MaximumSelectedOptions="1"
+                                KeepOpen="true"
+                                @bind-SelectedOptions="@acOrdemManutencao_SelectedItems"
+                                OptionText="@(item => String.Format("{0} - {1:dd/MM/yyyy HH:mm:ss'h'}", item.Codigo.ToString(), item.DataHora))"
+                                OptionStyle="min-height: 40px;">
+                <FooterContent Context="acContext">
+                    @if (itemsOrdemManutencao.Any() == false) {
+                        <FluentLabel Style="font-size: 12px; text-align: center; width: 300px;">
+                            Nenhuma Ordem de Manutenção encontrada
+                        </FluentLabel>
+                    }
+                </FooterContent>
+            </FluentAutocomplete>
+
+            <FluentSelect Label="  Status" Required Items=@intStatusOptions TOption="Option<int>"
+                          OptionText="@(i => i.Text)" OptionValue="@(i => i.Value.ToString())"
+                          @bind-Value="@intStatusSelectedValue" />
+
+            <FluentDatePicker Label="  Data da manutenção realizada" Style="@style"
+                              @bind-Value="@Content.DataHora" />
+
+            <FluentTimePicker Label="Hora da manutenção realizada" Required
+                              @bind-Value="@hora" />
+
+            <FluentTextField Label="  Coordenada" Required Style="@style"
+                             @bind-Value="@Content.Coordenada" />
+
+        </FluentStack>
+
+        <FluentValidationSummary Style="font-size: 14px; padding-top:20px; color: var(--error);" />
+
+    </EditForm>
+
+</FluentDialogBody>
+
+
+<hr />
+<FluentDialogFooter Visible="false" />
+
+<FluentStack HorizontalAlignment="HorizontalAlignment.End">
+    @if (Content.Id != default) {
+        <FluentButton Appearance="Appearance.Neutral" OnClick="DeleteAsync">
+            <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" Color="Color.Error" Slot="start" />
+            Deletar
+        </FluentButton>
+    }
+    <FluentButton Appearance="Appearance.Neutral"
+                  IconStart="@(new Icons.Regular.Size20.ArrowCircleLeft())"
+                  OnClick="@CancelAsync">Cancelar</FluentButton>
+
+    <FluentButton Appearance="Appearance.Accent"
+                  IconStart="@(new Icons.Regular.Size20.Save())"
+                  OnClick="@SaveAsync">Salvar</FluentButton>
+</FluentStack>
+<FluentToastProvider MaxToastCount="10" Position="ToastPosition.TopCenter" />
+
+
+@* Keyboard space *@
+<div style="padding-bottom: 300px;" />
+
+
+
+@code
+{
+
+    DateTime? hora { get; set; }
+
+    string intStatusSelectedValue = "0";
+    List<Option<int>> intStatusOptions = new() {
+        { new Option<int> { Value = 0, Text = OrdemManutencao_LocalStatus.Aguardando.ToString() } },
+        { new Option<int> { Value = 1, Text = OrdemManutencao_LocalStatus.Realizada.ToString() } },
+        { new Option<int> { Value = 2, Text = Helpers.EnumToFormattedText(OrdemManutencao_LocalStatus.NãoRealizada.ToString()) } }
+    };
+
+    IEnumerable<OrdemManutencao> acOrdemManutencao_SelectedItems = Array.Empty<OrdemManutencao>();
+
+    private IQueryable<OrdemManutencao> itemsOrdemManutencao = default!;
+
+
+
+    private void OnSearch(OptionsSearchEventArgs<OrdemManutencao> e) {
+        e.Items = itemsOrdemManutencao.Where(i => Search(i.Codigo, i.DataHora, e.Text));
+    }
+
+    private bool Search(int codigo, DateTime? dateTime, string eText) {
+        if (eText.Contains(" -") || eText.Contains(" - ")) {
+            return codigo.ToString().Contains(eText.Replace(" -", "").Replace(" - ", ""));
+        } else if (codigo.ToString().Contains(eText)) {
+            return true;
+        }
+        string? dt = dateTime?.ToString("dd/MM/yyyy HH:mm:ss'h'");
+        if (dt == null)
+            return false;
+        return dt.Contains(eText, StringComparison.OrdinalIgnoreCase);
+    }
+
+
+
+    private EditContext _editContext = default!;
+
+    protected override async Task OnInitializedAsync() {
+        _editContext = new EditContext(Content);
+        var resultOrdemManutencao = await itemServiceOrdemManutencao.GetAllAsync();
+        itemsOrdemManutencao = resultOrdemManutencao?.OrderByDescending(x => x.DataHora) ?? default!;
+        //return base.OnInitializedAsync();
+        intStatusSelectedValue = ((int)Content.Status).ToString();
+        hora = Content.DataHora;
+
+        if (Content.OrdemManutencao is not null)
+            acOrdemManutencao_SelectedItems = new List<OrdemManutencao>() {
+                Content.OrdemManutencao
+            };
+
+    }
+
+    [Parameter]
+    public OrdemManutencao_Local Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog Dialog { get; set; } = default!;
+
+    private async Task SaveAsync() {
+
+        if (_editContext.Validate() && acOrdemManutencao_SelectedItems.Any()!) {
+            Content.DataHora = Helpers.JoinDateTime(Content.DataHora, hora) ?? DateTime.Now;
+            Content.Status = (OrdemManutencao_LocalStatus)Enum.ToObject(typeof(OrdemManutencao_LocalStatus), Convert.ToInt32(intStatusSelectedValue));
+            var OrdemManutencao = acOrdemManutencao_SelectedItems.First();
+            Content.OrdemManutencao = null;
+            Content.OrdemManutencaoId = OrdemManutencao.Id;
+            await Dialog.CloseAsync(Content);
+        } else {
+            ToastService.ShowWarning("Por favor verifique os campos assinalados em vermelho.");
+        }
+    }
+
+    private async Task DeleteAsync() {
+        await Dialog.CloseAsync(Content.Id);
+    }
+
+    private async Task CancelAsync() {
+        await Dialog.CancelAsync();
+    }
+
+    const string style = "margin-top: -10px; margin-bottom: 10px;";
+
+}

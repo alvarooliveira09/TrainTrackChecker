@@ -1,0 +1,58 @@
+﻿@page "/hardwarecards"
+@inject NavigationManager navigationManager
+@inject IJSRuntime JS
+
+<FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Horizontal"
+             HorizontalAlignment="HorizontalAlignment.Stretch"
+             VerticalAlignment="VerticalAlignment.Top">
+    <FluentIcon Style="margin-bottom:2px" Value="@(new Icons.Regular.Size32.ArrowCircleLeft())" OnClick="@(() => JS.InvokeVoidAsync("history.back"))" />
+    <h3 style="margin-bottom:20px;">Hardwares</h3>
+</FluentStack>
+
+<FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical"
+             HorizontalAlignment="HorizontalAlignment.Center"
+             VerticalAlignment="VerticalAlignment.Top">
+
+    <FluentCard Style="margin-bottom:20px; background-color:azure;">
+        <p>Listagem de Hardwares com opções de cadastro, edição e exclusão.</p>
+        <FluentButton
+            Appearance="Appearance.Accent"
+            IconStart="@(new Icons.Regular.Size24.Bot())"
+            OnClick="@BtListOnClick" Loading="@loading">
+            Listagem
+        </FluentButton>
+    </FluentCard>
+
+    <FluentCard Style="margin-bottom:20px; background-color:azure;">
+        <p>Mostrar no mapa a localizaçãp de todos os Hardwares instalados.</p>
+        <FluentButton 
+            Appearance="Appearance.Accent"
+            IconStart="@(new Icons.Regular.Size24.Location())"
+            OnClick="@BtLocalizOnClick" Loading="@loading">
+            Localização
+        </FluentButton>
+    </FluentCard>
+
+</FluentStack>
+
+@code {
+    
+    bool loading = false;
+
+    async Task BtListOnClick() {
+        loading = true;
+        try {
+            navigationManager.NavigateTo($"/hardwares");
+        } finally {
+            loading = false;
+        }
+    }
+    async Task BtLocalizOnClick() {
+        loading = true;
+        try {
+            navigationManager.NavigateTo($"/hardwaresmap");
+        } finally {
+            loading = false;
+        }
+    }
+}

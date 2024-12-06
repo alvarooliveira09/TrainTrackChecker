@@ -1,0 +1,56 @@
+﻿@page "/ordensmanutencaocards"
+@inject NavigationManager navigationManager
+@inject IJSRuntime JS
+
+<FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Horizontal"
+             HorizontalAlignment="HorizontalAlignment.Stretch"
+             VerticalAlignment="VerticalAlignment.Top">
+    <FluentIcon Style="margin-bottom:2px" Value="@(new Icons.Regular.Size32.ArrowCircleLeft())" OnClick="@(() => JS.InvokeVoidAsync("history.back"))" />
+    <h3 style="margin-bottom:20px;">Ordens de manutenção</h3>
+</FluentStack>
+
+<FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical"
+             HorizontalAlignment="HorizontalAlignment.Center"
+             VerticalAlignment="VerticalAlignment.Top">
+
+    <FluentCard Style="margin-bottom:20px; background-color:cornsilk;">
+        <p>Listagem de Ordens de Manutenção com opções de edição e exclusão.</p>
+        <FluentButton Appearance="Appearance.Accent"
+                      IconStart="@(new Icons.Regular.Size24.VehicleCarProfileLtr())"
+                      OnClick="@BtListOnClick" Loading="@loading">
+            Listagem
+        </FluentButton>
+    </FluentCard>
+
+    <FluentCard Style="margin-bottom:20px; background-color:cornsilk;">
+        <p>Locais de Ordens de Manutenção com opções de edição e exclusão.</p>
+        <FluentButton Appearance="Appearance.Accent"
+                      IconStart="@(new Icons.Regular.Size24.LocationTargetSquare())"
+                      OnClick="@BtLocaisOnClick" Loading="@loading">
+            Locais
+        </FluentButton>
+    </FluentCard>
+
+</FluentStack>
+
+@code {
+
+    bool loading = false;
+
+    async Task BtListOnClick() {
+        loading = true;
+        try {
+            navigationManager.NavigateTo($"/ordensmanutencao");
+        } finally {
+            loading = false;
+        }
+    }
+    async Task BtLocaisOnClick() {
+        loading = true;
+        try {
+            navigationManager.NavigateTo($"/ordensmanutencaolocais");
+        } finally {
+            loading = false;
+        }
+    }
+}

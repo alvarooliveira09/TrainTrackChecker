@@ -1,0 +1,130 @@
+﻿@implements IDialogContentComponent<Hardware>
+@using System.ComponentModel.DataAnnotations
+@inject IToastService ToastService
+
+@* https://www.fluentui-blazor.net/Dialog#editabledialog *@
+
+<FluentDialogHeader ShowDismiss="false">
+    <FluentStack VerticalAlignment="VerticalAlignment.Center">
+        @if (Content.Id == default) {
+            <FluentIcon Value="@(new Icons.Regular.Size24.Add())" />
+        } else {
+            <FluentIcon Value="@(new Icons.Regular.Size24.Edit())" />
+        }
+        <FluentLabel Typo="Typography.PaneHeader">
+            @Dialog.Instance.Parameters.Title
+        </FluentLabel>
+    </FluentStack>
+</FluentDialogHeader>
+
+<FluentDialogBody>
+
+    <EditForm EditContext="@_editContext" FormName="@typeof(Hardware).Name" >
+
+        <DataAnnotationsValidator />
+
+        <FluentStack
+            Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical" 
+            HorizontalAlignment="HorizontalAlignment.Stretch">
+
+            @if (Content.Id != default) {
+                <FluentNumberField @bind-Value="@Content.Codigo" Appearance="FluentInputAppearance.Filled" ReadOnly="true" Label="Codigo" />
+            }
+            <FluentTextField Label="  Name" Autofocus="true" Required Style="@style"
+                @bind-Value="@Content.Nome"   />
+            <FluentTextField Label="  Descrição" Style="@style"
+                @bind-Value="@Content.Descricao" />
+            <FluentTextField Label="  Número de Série" Required Style="@style"
+                @bind-Value="@Content.NumeroSerie" />
+
+            <FluentDatePicker Label="  Data de Instalação" Style="@style" @bind-Value="@Content.DataHoraInstalacao" />
+            <FluentTimePicker ValueChanged="@DataHoraInstalacao_TimeChanged" Label="Hora de Instalação" />
+
+            <FluentTextField Label="  Local de instalação" Style="@style"
+                @bind-Value="@Content.LocalInstalacao" />
+            <FluentSwitch Label="  Em operação"
+                @bind-Value=@Content.EmOperacao />
+        </FluentStack>
+
+        <FluentValidationSummary Style="font-size: 14px; padding-top:20px; color: var(--error);" />
+
+    </EditForm>
+
+</FluentDialogBody>
+
+
+<hr />
+<FluentDialogFooter Visible="false"/>
+
+<FluentStack HorizontalAlignment="HorizontalAlignment.End">
+    @if (Content.Id != default) {
+        <FluentButton Appearance="Appearance.Neutral" OnClick="DeleteAsync">
+            <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" Color="Color.Error" Slot="start" />
+            Deletar
+        </FluentButton>
+    }
+    <FluentButton Appearance="Appearance.Neutral"
+                    IconStart="@(new Icons.Regular.Size20.ArrowCircleLeft())"
+                    OnClick="@CancelAsync" >Cancelar</FluentButton>
+
+    <FluentButton Appearance="Appearance.Accent"
+                    IconStart="@(new Icons.Regular.Size20.Save())"
+                    OnClick="@SaveAsync" >Salvar</FluentButton>
+</FluentStack>
+<FluentToastProvider MaxToastCount="10" Position="ToastPosition.TopCenter" />
+
+@* Keyboard space *@
+<div style="padding-bottom: 300px;"/>
+
+
+@code {
+
+
+    void DataHoraInstalacao_TimeChanged(DateTime? time) {
+        Content.DataHoraInstalacao = JoinDateTime(Content.DataHoraInstalacao, time);
+    }
+
+    private DateTime? JoinDateTime(DateTime? date, DateTime? time) {
+        if (time == null) { return null; }
+        if (date == null) { date = DateTime.Now; }
+        return new DateTime(
+            year: date.Value.Year,
+            month: date.Value.Month,
+            day: date.Value.Day,
+            hour: time.Value.Hour,
+            minute: time.Value.Minute,
+            second: time.Value.Second
+        );
+    }
+
+    private EditContext _editContext = default!;
+
+    protected override void OnInitialized() {
+        _editContext = new EditContext(Content);
+    }
+
+    [Parameter]
+    public Hardware Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog Dialog { get; set; } = default!;
+
+    private async Task SaveAsync() {
+        if (_editContext.Validate()) {
+            await Dialog.CloseAsync(Content);
+        } else {
+            ToastService.ShowWarning("Por favor verifique os campos assinalados em vermelho.");
+        }
+    }
+
+    private async Task DeleteAsync() {
+        await Dialog.CloseAsync(Content.Id);
+    }
+
+    private async Task CancelAsync() {
+        await Dialog.CancelAsync(); 
+    }
+
+    const string style = "margin-top: -10px; margin-bottom: 10px;";
+
+}

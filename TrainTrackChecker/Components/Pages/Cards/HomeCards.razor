@@ -1,0 +1,80 @@
+﻿@page "/"
+@inject NavigationManager navigationManager
+<h3>  Home</h3>
+
+<FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical"
+             HorizontalAlignment="HorizontalAlignment.Center"
+             VerticalAlignment="VerticalAlignment.Top">
+    <FluentCard Style="margin-bottom:20px; background-color:azure;">
+        <FluentButton Appearance="Appearance.Accent"
+                        IconStart="@(new Icons.Regular.Size24.Bot())"
+                        OnClick="@BtHardwaresOnClick" Loading="@loading">
+            Hardwares
+        </FluentButton>
+     </FluentCard>
+    <FluentCard Style="margin-bottom:20px; background-color:cornsilk;">
+        <FluentButton Appearance="Appearance.Accent"
+                        IconStart="@(new Icons.Regular.Size24.VehicleCarProfileLtr())"
+                        OnClick="@BtOrdensOnClick" Loading="@loading">
+            Ordens de manutenção
+        </FluentButton>
+    </FluentCard>
+    <FluentCard Style="margin-bottom:20px; background-color:ivory;">
+        <FluentButton Appearance="Appearance.Accent"
+                        IconStart="@(new Icons.Regular.Size24.TaskListSquareLtr())"
+                        OnClick="@BtTrechosOnClick" Loading="@loading">
+            Trechos
+        </FluentButton>
+    </FluentCard>
+    <FluentCard Style="margin-bottom:20px; background-color:lavender;">
+        <FluentButton Appearance="Appearance.Accent"
+                      IconStart="@(new Icons.Regular.Size24.DesktopPulse())"
+                      OnClick="@BtAnalisesOnClick" Loading="@loading">
+            Análises
+        </FluentButton>
+    </FluentCard>
+</FluentStack>
+
+@code {
+
+    bool loading = false;
+
+    async Task BtHardwaresOnClick() {
+        loading = true;
+        try {
+            navigationManager.NavigateTo($"/hardwarecards");
+        } finally {
+            loading = false;
+        }
+    }
+
+    async Task BtOrdensOnClick() {
+        loading = true;
+        try {
+            navigationManager.NavigateTo($"/ordensmanutencaocards");
+        } finally {
+            loading = false;
+        }
+    }
+
+    async Task BtTrechosOnClick() {
+        loading = true;
+        try {
+            navigationManager.NavigateTo($"/trechos");
+            
+        } finally {
+            loading = false;
+        }
+    }
+    async Task BtAnalisesOnClick() {
+        loading = true;
+        try {
+            //navigationManager.NavigateTo($"/trechos");
+
+        } finally {
+            loading = false;
+        }
+    }
+    
+
+}
